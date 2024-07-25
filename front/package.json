@@ -1,0 +1,47 @@
+{
+  "name": "my-application-2",
+  "version": "1.0.0",
+  "description": "Application Sample Template",
+  "packageManager": "pnpm@7.1.0",
+  "scripts": {
+    "gen": "node ./scripts/gen/index.js",
+    "precommit-msg": "echo '🚧 start pre-commit checks ...' && exit 0",
+    "prettier": "node ./scripts/selfCloseInputTag.js && prettier --write \"src/**/*.{ux,js,json,less,scss,css,pcss,md,vue}\""
+  },
+  "devDependencies": {
+    "@babel/runtime": "^7.12.5",
+    "@types/quickapp": "npm:quickapp-interface@^1.0.0",
+    "colors": "^1.4.0",
+    "husky": "^7.0.1",
+    "less": "^4.2.0",
+    "less-loader": "^12.2.0",
+    "lint-staged": "^11.0.1",
+    "prettier": "^2.3.2",
+    "prettier-plugin-ux": "^0.3.0"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "semi": false,
+    "printWidth": 80,
+    "proseWrap": "never",
+    "tabWidth": 2
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn run precommit-msg && lint-staged"
+    }
+  },
+  "lint-staged": {
+    "**/**.{ux,js,json,less,scss,css,pcss,md,vue}": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "browserslist": [
+    "chrome 65"
+  ],
+  "dependencies": {
+    "qaui": "^1.0.18",
+    "rimraf": "^5.0.5"
+  }
+}

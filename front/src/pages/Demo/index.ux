@@ -1,0 +1,296 @@
+<import name="MsgContent" src="../../components/MsgContent.ux"></import>
+<import name="q-icon" src="qaui/src/components/icon/index"></import>
+
+<template>
+  <div class="body">
+    <list class="msg-container">
+      <div if="chatId">  
+          <button class="my-button" @click="copyTextToClipboard">
+            <text>{{buttonContent}} </text>
+          </button>  
+      </div>  
+      <list-item
+        type="loadMore"
+        class="conversation-container"
+        for="(index, conversation) in conversationList"
+      >
+        <MsgContent
+          if="{{conversation.query}}"
+          class="query"
+          msg="{{conversation.query}}"
+        ></MsgContent>
+        <MsgContent
+          if="{{conversation.response}}"
+          class="response"
+          msg="{{conversation.response}}"
+        ></MsgContent>
+      </list-item>
+    </list>
+    <div if="showShareCode" class="fill-chatId">
+      <input
+        id="query-input"
+        class="input-msg"
+        placeholder="输入分享码"
+        @change="onInputMCode"
+        value="{{importId}}"
+      />
+      <input
+        class="input-button"
+        type="button"
+        value="导入"
+        @click="onImport"
+      />
+    </div>
+
+    <div class="input-container">
+      <input
+        id="query-input"
+        class="input-msg"
+        placeholder="聊点什么吧"
+        @change="onInputMsg"
+        value="{{queryMsg}}"
+      />
+      <input
+        class="input-button"
+        type="button"
+        value="发送"
+        @click="onSendMsg"
+      />
+      <input
+        class="add-option"
+        type="button"
+        @click="importButton"
+        value="+"
+      />
+    </div>
+  </div>
+</template>
+
+<script>
+import fetch from '@system.fetch'
+
+export default {
+  // 页面级组件的数据模型，影响传入数据的覆盖机制：private内定义的属性不允许被覆盖
+  private: {
+    conversationList: [],
+    conversationId: 0,
+    queryMsg: "",
+    url: "",
+    count: 1,
+    clickCount:1,
+    chatId:"",
+    shareButtonContent:"复制分享码",
+    successCopy:"复制成功",
+    buttonContent:"复制分享码",
+    importId:"",
+    showShareCode:false
+  },
+  onShow() {
+    this.url = this.$app.$data.baseUrl1
+    console.log("调试输出", this.$app.$data.baseUrl1)
+  },
+  async onInit() {
+    this.$page.setTitleBar({ text: '新对话' })
+
+  },
+  onInputMsg(evt) {
+    this.queryMsg = evt.value
+  },
+  onInputMCode(evt) {
+    this.importId = evt.value
+  },
+  async onImport() {
+    console.log("导入验证码")
+    // import-chat
+    this.conversationList = await this.getShareChat(this.importId)
+    console.log("导入成功")
+    console.log(this.conversationList)
+  },
+  importButton() {
+    this.showShareCode = !this.showShareCode
+  },
+  copyTextToClipboard() {  
+            // 创建一个临时的textarea元素  
+            const textarea = document.createElement('textarea');  
+            // 设置textarea的内容为需要复制的文字  
+            textarea.value = this.chatId;  
+            // 将textarea添加到文档中  
+            document.body.appendChild(textarea);  
+            // 选中textarea的内容  
+            textarea.select();  
+            // 复制选中的文本到粘贴板  
+            if (document.execCommand('copy')) {  
+                console.log('复制成功');  
+                this.buttonContent = this.successCopy
+                setTimeout(() => {  
+                  this.buttonContent = this.shareButtonContent
+                }, 2000); // 3000毫秒等于3秒  
+
+            } else {  
+                console.log('复制失败');  
+            }  
+            // 移除临时的textarea元素  
+            document.body.removeChild(textarea);  
+  },
+  onPushWait(id,query) {
+    this.conversationList.push({
+      id,
+      query,
+      response: "......"
+    })
+  },
+  async onSendMsg() {
+    this.conversationId++
+    const id = this.conversationId
+    const query = this.queryMsg
+    console.log("输出传递值", query)
+    // 清空输入框
+    this.queryMsg = ''
+    // 大模型回复需要等待，先在页面展示咨询的问题
+    this.onPushWait(id,query)
+    // 获取大模型回复
+    const responseData = await this.getResponse(id, query)
+    // 获取当前会话Id
+    this.chatId = responseData.hashValue
+    console.log("当前回话ID",this.chatId)
+    // 更新对话数组并刷新页面回复
+    const index = this.conversationList.findIndex(ele => ele.id === responseData.id)
+    this.conversationList.splice(index, 1, {
+      id: responseData.id,
+      query: responseData.query,
+      response: responseData.response
+    })
+
+    console.log("打印当前聊天数组",this.conversationList)
+  },
+  async getShareChat(hashValue) {
+    const requestUrl = `${this.url}/import-chat?hashValue=${hashValue}`
+    const res = await fetch
+      .fetch({
+        url: requestUrl,
+        responseType: 'json'
+      })
+    const result = res.data && res.data.data
+    
+    console.log("打印请求数据",result.conversationList)
+    return result.conversationList
+  },
+  async getResponse(id, query) {
+    console.log("进入函数内部", query)
+    const requestUrl = `${this.url}/get-response?queryId=${id}&query=${encodeURIComponent(query)}`
+    console.log(requestUrl)
+    const res = await fetch
+      .fetch({
+        // 这里换成你的服务器地址
+        // url: `http://www.qidong.love:1202/get-response?queryId=${id}&query=${query}`, 
+        // 这里是本地的
+        url: requestUrl,
+
+        responseType: 'json'
+      })
+    const result = res.data && res.data.data
+    const responseData = {
+      id: result.id,
+      query: result.query,
+      response: result.response,
+      hashValue:result.hashValue
+    }
+    return responseData
+  }
+}
+</script>
+
+<style >
+.body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background-color: #fff;
+}
+.msg-container {
+  display: flex;
+  position: fixed;
+  flex-direction: column;
+  width: 100%;
+  height: 80%;
+  background-color: rgb(255, 255, 255);
+}
+.conversation-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.query {
+  align-self: flex-end;
+}
+.response {
+  align-self: flex-start;
+}
+
+.fill-chatId {
+  display: flex;
+  align-items: center;
+  position: fixed;
+  bottom: 75px;
+}
+
+.fill-chatId .input-msg {
+  width: 80%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  text-align: center; /* 让placeholder内容居中 */
+  background-color: rgb(255, 255, 255);
+}
+.fill-chatId .input-button {
+  width: 20%;
+  padding: 10px 15px;
+  background-color: #4caf50;
+  color: white;
+  border: 1px solid #4caf50;
+  border-radius: 20px;
+}
+.input-container {
+  display: flex;
+  align-items: center;
+  position: fixed;
+  bottom: 20px;
+}
+.input-container .input-msg {
+  width: 80%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  text-align: center; /* 让placeholder内容居中 */
+  background-color: rgb(255, 255, 255);
+}
+.input-container .input-button {
+  width: 20%;
+  padding: 10px 15px;
+  background-color: #4caf50;
+  color: white;
+  border: 1px solid #4caf50;
+  border-radius: 20px;
+}
+
+.input-container  .add-option {
+  width: 10%;
+  border: 1px solid #000000;
+  border-radius: 20px
+}
+.my-button {
+  background-color: #7bf37f;
+  border: 1px solid #000000;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  font-size: 16px;
+  border-radius: 25px;
+}
+</style>
